@@ -10,8 +10,8 @@
     <string name="button_exit_text">Exit</string>
 
     <!-- TextViews -->
-    <string name="title_placeholder_text">Song title</string>
-    <string name="duration_placeholder_text">Duration</string>
+    <string name="title_text">Song title</string>
+    <string name="duration_text">%1$s/%2$s</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Foreground service channel</string>
