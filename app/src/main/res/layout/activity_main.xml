@@ -109,8 +109,10 @@
     <ProgressBar
         android:id="@+id/progressBar"
         style="?android:attr/progressBarStyleHorizontal"
-        android:layout_width="wrap_content"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
+        android:layout_marginStart="20dp"
+        android:layout_marginEnd="20dp"
         app:layout_constraintBottom_toTopOf="@+id/verticalGuideline2"
         app:layout_constraintEnd_toStartOf="@+id/textDuration"
         app:layout_constraintStart_toStartOf="parent"
