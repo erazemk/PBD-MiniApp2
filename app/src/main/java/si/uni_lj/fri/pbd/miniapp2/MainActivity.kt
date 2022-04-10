@@ -56,6 +56,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         super.onStop()
+        updateDurationHandler.sendEmptyMessage(UPDATE_DURATION_MSG_ID)
 
         // Unbind the service if bound
         if (serviceBound) {
@@ -76,7 +77,6 @@ class MainActivity : AppCompatActivity() {
     private val updateDurationHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             if (UPDATE_DURATION_MSG_ID == msg.what) {
-
                 // Only update duration if needed
                 if (mediaPlayerService?.isMediaPlaying == true) {
                     updateDuration()
@@ -99,6 +99,7 @@ class MainActivity : AppCompatActivity() {
 
             // Update the duration if media was already playing
             if (mediaPlayerService?.isMediaPlaying == true) {
+                Log.i(TAG, "Updating duration info after connection to service")
                 updateDuration()
             }
         }
@@ -111,6 +112,7 @@ class MainActivity : AppCompatActivity() {
 
     // Updates the duration in the media player screen
     private fun updateDuration() {
+        Log.i(TAG, "ServiceBound = $serviceBound")
         if (serviceBound) {
             // Get current position and duration from MediaPlayerService
             val currentPosition : Int = mediaPlayerService?.getCurrentPosition() ?: 0
@@ -132,6 +134,8 @@ class MainActivity : AppCompatActivity() {
             // Set the text view and progress bar
             binding.textDuration.text = getString(R.string.song_duration_text, currentPositionFormat, durationFormat)
             binding.progressBar.progress = ((currentPosition.toFloat() / duration.toFloat()) * 1000).toInt()
+        } else {
+            Log.i(TAG, "Could not update duration, service not bound")
         }
     }
 
