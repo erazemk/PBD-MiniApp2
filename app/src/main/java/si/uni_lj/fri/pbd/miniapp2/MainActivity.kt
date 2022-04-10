@@ -42,7 +42,6 @@ class MainActivity : AppCompatActivity() {
         Log.i(TAG, "Starting and binding service")
 
         val mediaPlayerIntent = Intent(this, MediaPlayerService::class.java)
-        mediaPlayerIntent.action = ACTION_START
 
         if (startService(mediaPlayerIntent) == null) {
             Log.e(TAG, "Could not start MediaPlayerService")
@@ -65,6 +64,7 @@ class MainActivity : AppCompatActivity() {
             if (mediaPlayerService?.isMediaPlaying == true) {
                 mediaPlayerService?.foreground()
             } else {
+                mediaPlayerService?.stopPlayer()
                 stopService(Intent(this, MediaPlayerService::class.java))
             }
         }
