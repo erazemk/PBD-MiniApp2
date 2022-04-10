@@ -7,8 +7,8 @@ import android.os.*
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
-import si.uni_lj.fri.pbd.miniapp2.MediaPlayerService.Companion.ACTION_START
 import si.uni_lj.fri.pbd.miniapp2.databinding.ActivityMainBinding
+import java.util.concurrent.TimeUnit
 
 @Suppress("UNUSED_PARAMETER")
 class MainActivity : AppCompatActivity() {
@@ -31,9 +31,11 @@ class MainActivity : AppCompatActivity() {
         val view = binding.root
         setContentView(view)
 
-        // Set the default duration text
-        binding.textDuration.text = getString(R.string.song_duration_text, "00:00:00",
-            "00:00:00")
+        binding.textDuration.text = getString(R.string.song_duration_text, "00:00", "00:00")
+        binding.progressBar.visibility = View.VISIBLE
+
+        // 1000 so we get a more fluid experience (fractional percents)
+        binding.progressBar.max = 1000
     }
 
     override fun onStart() {
@@ -74,7 +76,12 @@ class MainActivity : AppCompatActivity() {
     private val updateDurationHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             if (UPDATE_DURATION_MSG_ID == msg.what) {
-                updateDuration()
+
+                // Only update duration if needed
+                if (mediaPlayerService?.isMediaPlaying == true) {
+                    updateDuration()
+                }
+
                 sendEmptyMessageDelayed(UPDATE_DURATION_MSG_ID, UPDATE_RATE_MS)
             }
         }
@@ -105,8 +112,26 @@ class MainActivity : AppCompatActivity() {
     // Updates the duration in the media player screen
     private fun updateDuration() {
         if (serviceBound) {
-            binding.textDuration.text = getString(R.string.song_duration_text,
-                MediaPlayerService.currentTime.toString(), MediaPlayerService.totalTime.toString())
+            // Get current position and duration from MediaPlayerService
+            val currentPosition : Int = mediaPlayerService?.getCurrentPosition() ?: 0
+            val duration : Int = mediaPlayerService?.getDuration() ?: 0
+
+            // Convert them to seconds and minutes
+            // Source: https://stackoverflow.com/a/64740615
+            val currentPositionMinutes : Long = TimeUnit.MILLISECONDS.toMinutes(currentPosition.toLong())
+            val currentPositionSeconds : Long = TimeUnit.MILLISECONDS.toSeconds(currentPosition.toLong()) -
+                    TimeUnit.MINUTES.toSeconds(currentPositionMinutes)
+            val durationMinutes : Long = TimeUnit.MILLISECONDS.toMinutes(duration.toLong())
+            val durationSeconds : Long = TimeUnit.MILLISECONDS.toSeconds(duration.toLong()) -
+                    TimeUnit.MINUTES.toSeconds(durationMinutes)
+
+            // Format them in MM:SS format
+            val currentPositionFormat = String.format("%02d:%02d", currentPositionMinutes, currentPositionSeconds)
+            val durationFormat = String.format("%02d:%02d", durationMinutes, durationSeconds)
+
+            // Set the text view and progress bar
+            binding.textDuration.text = getString(R.string.song_duration_text, currentPositionFormat, durationFormat)
+            binding.progressBar.progress = ((currentPosition.toFloat() / duration.toFloat()) * 1000).toInt()
         }
     }
 
