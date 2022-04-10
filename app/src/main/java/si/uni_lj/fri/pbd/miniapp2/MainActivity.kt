@@ -74,8 +74,6 @@ class MainActivity : AppCompatActivity() {
     private val updateDurationHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             if (UPDATE_DURATION_MSG_ID == msg.what) {
-                Log.i(TAG, "Updating duration")
-
                 updateDuration()
                 sendEmptyMessageDelayed(UPDATE_DURATION_MSG_ID, UPDATE_RATE_MS)
             }
@@ -107,8 +105,6 @@ class MainActivity : AppCompatActivity() {
     // Updates the duration in the media player screen
     private fun updateDuration() {
         if (serviceBound) {
-            Log.i(TAG, "Updated song duration")
-
             binding.textDuration.text = getString(R.string.song_duration_text,
                 MediaPlayerService.currentTime.toString(), MediaPlayerService.totalTime.toString())
         }
