@@ -11,7 +11,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers.Main
 import kotlinx.coroutines.launch
 import si.uni_lj.fri.pbd.miniapp2.databinding.ActivityMainBinding
-import java.util.concurrent.TimeUnit
 
 @Suppress("UNUSED_PARAMETER")
 class MainActivity : AppCompatActivity() {
@@ -34,11 +33,11 @@ class MainActivity : AppCompatActivity() {
         val view = binding.root
         setContentView(view)
 
-        binding.textDuration.text = getString(R.string.song_duration_text, "00:00", "00:00")
+        // Set default values for UI elements
+        binding.textTitle.text = getString(R.string.song_title_text, "Press play")
+        binding.textDuration.text = getString(R.string.song_duration_text, "00:00/00:00")
         binding.progressBar.visibility = View.VISIBLE
-
-        // 1000 so we get a more fluid experience (fractional percents)
-        binding.progressBar.max = 1000
+        binding.progressBar.max = 100
     }
 
     override fun onStart() {
@@ -76,7 +75,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Handler to update the duration every second, when the media is playing
+    // Handler to update the duration info every second, when the media is playing
     private val updateDurationHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             if (UPDATE_DURATION_MSG_ID == msg.what) {
@@ -127,26 +126,9 @@ class MainActivity : AppCompatActivity() {
     private fun updateDuration() {
         Log.i(TAG, "ServiceBound = $serviceBound")
         if (serviceBound) {
-            // Get current position and duration from MediaPlayerService
-            val currentPosition : Int = mediaPlayerService?.getCurrentPosition() ?: 0
-            val duration : Int = mediaPlayerService?.getDuration() ?: 0
-
-            // Convert them to seconds and minutes
-            // Source: https://stackoverflow.com/a/64740615
-            val currentPositionMinutes : Long = TimeUnit.MILLISECONDS.toMinutes(currentPosition.toLong())
-            val currentPositionSeconds : Long = TimeUnit.MILLISECONDS.toSeconds(currentPosition.toLong()) -
-                    TimeUnit.MINUTES.toSeconds(currentPositionMinutes)
-            val durationMinutes : Long = TimeUnit.MILLISECONDS.toMinutes(duration.toLong())
-            val durationSeconds : Long = TimeUnit.MILLISECONDS.toSeconds(duration.toLong()) -
-                    TimeUnit.MINUTES.toSeconds(durationMinutes)
-
-            // Format them in MM:SS format
-            val currentPositionFormat = String.format("%02d:%02d", currentPositionMinutes, currentPositionSeconds)
-            val durationFormat = String.format("%02d:%02d", durationMinutes, durationSeconds)
-
             // Update text view and progress bar with the proper current position and duration
-            binding.textDuration.text = getString(R.string.song_duration_text, currentPositionFormat, durationFormat)
-            binding.progressBar.progress = ((currentPosition.toFloat() / duration.toFloat()) * 1000).toInt()
+            binding.textDuration.text = mediaPlayerService?.songDurationText
+            binding.progressBar.progress = mediaPlayerService?.progress ?: 0
         } else {
             Log.i(TAG, "Could not update duration, service not bound")
         }
@@ -156,12 +138,11 @@ class MainActivity : AppCompatActivity() {
     fun playButtonOnClickListener(v: View) {
         Log.i(TAG, "Play button was pressed")
 
-        if (serviceBound && mediaPlayerService?.isMediaPlaying == false) {
+        if (serviceBound) {
             mediaPlayerService?.startPlayer()
+            binding.textTitle.text = mediaPlayerService?.songTitleText
             updateDurationHandler.sendEmptyMessage(UPDATE_DURATION_MSG_ID)
             Log.i(TAG, "Started player")
-        } else {
-            Log.i(TAG, "Not bound or playing media")
         }
     }
 
