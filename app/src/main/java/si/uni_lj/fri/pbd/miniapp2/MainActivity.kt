@@ -7,6 +7,9 @@ import android.os.*
 import android.util.Log
 import android.view.View
 import androidx.appcompat.app.AppCompatActivity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers.Main
+import kotlinx.coroutines.launch
 import si.uni_lj.fri.pbd.miniapp2.databinding.ActivityMainBinding
 import java.util.concurrent.TimeUnit
 
@@ -79,7 +82,9 @@ class MainActivity : AppCompatActivity() {
             if (UPDATE_DURATION_MSG_ID == msg.what) {
                 // Only update duration if needed
                 if (mediaPlayerService?.isMediaPlaying == true) {
-                    updateDuration()
+                    CoroutineScope(Main).launch {
+                        updateDuration()
+                    }
                 }
 
                 sendEmptyMessageDelayed(UPDATE_DURATION_MSG_ID, UPDATE_RATE_MS)
@@ -100,7 +105,10 @@ class MainActivity : AppCompatActivity() {
             // Update the duration if media was already playing
             if (mediaPlayerService?.isMediaPlaying == true) {
                 Log.i(TAG, "Updating duration info after connection to service")
-                updateDuration()
+
+                CoroutineScope(Main).launch {
+                    updateDuration()
+                }
             }
         }
 
@@ -131,7 +139,7 @@ class MainActivity : AppCompatActivity() {
             val currentPositionFormat = String.format("%02d:%02d", currentPositionMinutes, currentPositionSeconds)
             val durationFormat = String.format("%02d:%02d", durationMinutes, durationSeconds)
 
-            // Set the text view and progress bar
+            // Update text view and progress bar with the proper current position and duration
             binding.textDuration.text = getString(R.string.song_duration_text, currentPositionFormat, durationFormat)
             binding.progressBar.progress = ((currentPosition.toFloat() / duration.toFloat()) * 1000).toInt()
         } else {
@@ -196,7 +204,6 @@ class MainActivity : AppCompatActivity() {
         }
 
         // Exit the app
-        @Suppress("UNUSED_PARAMETER")
         Log.i(TAG, "Exiting the app")
         finishAndRemoveTask()
     }
