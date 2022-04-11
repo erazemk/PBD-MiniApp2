@@ -98,7 +98,12 @@ class MainActivity : AppCompatActivity() {
             Log.i(TAG, "Creating a new service connection")
 
             val binder = service as MediaPlayerService.MediaServiceBinder
+
             mediaPlayerService = binder.service
+            if (mediaPlayerService == null) {
+                Log.e(TAG, "Could not bind to service")
+            }
+
             serviceBound = true
             mediaPlayerService?.background()
 
