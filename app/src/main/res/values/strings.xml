@@ -10,12 +10,10 @@
     <string name="button_exit_text">Exit</string>
 
     <!-- TextViews -->
-    <string name="song_title_text">Song title</string>
-    <string name="song_duration_text">%1$s/%2$s</string>
+    <string name="song_title_text">%1$s</string>
+    <string name="song_duration_text">%1$s</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Foreground service channel</string>
     <string name="notification_channel_description">Posts notifications related to the media player service</string>
-    <string name="notification_title">Music Player</string>
-    <string name="notification_text">Tap to return to the music player</string>
 </resources>
