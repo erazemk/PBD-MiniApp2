@@ -11,9 +11,6 @@ import android.util.Log
 import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import java.lang.reflect.Field
 import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
@@ -70,8 +67,8 @@ class MediaPlayerService : Service() {
     // Handler to update duration info every second
     private val updateDurationHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
-            if (DURATION_MSG_ID == msg.what) {
-                if (isMediaPlaying) updateMediaInfo()
+            if (DURATION_MSG_ID == msg.what && isMediaPlaying) {
+                updateMediaInfo()
                 if (foreground) updateNotification()
                 sendEmptyMessageDelayed(DURATION_MSG_ID, DURATION_MSG_RATE)
             }
@@ -124,6 +121,9 @@ class MediaPlayerService : Service() {
             serviceBound = false
         }
 
+        // Release media player if needed
+        if (mediaPlayer != null) releaseMediaPlayer()
+
         LocalBroadcastManager.getInstance(this).unregisterReceiver(gestureBroadcastReceiver)
         stopService(Intent(this, AccelerationService::class.java))
     }
@@ -155,12 +155,6 @@ class MediaPlayerService : Service() {
         val artist = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST)
         val title = metadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
         songTitleText = String.format("%s - %s", artist, title)
-    }
-
-    // Properly release (stop/kill) MediaPlayer instance
-    private fun releaseMediaPlayer() {
-        mediaPlayer?.release()
-        mediaPlayer = null
     }
 
     // Update current position and duration with data from MediaPlayerService
@@ -249,9 +243,7 @@ class MediaPlayerService : Service() {
 
     // Start the player if not currently playing media
     fun startPlayer() {
-        // Recreate the media player if needed
-        if (mediaPlayer == null) CoroutineScope(Dispatchers.Default).launch { createMediaPlayer() }
-
+        if (mediaPlayer == null) createMediaPlayer()
         isMediaPlaying = true
         mediaPlayer?.start()
         if (foreground) updateNotification()
@@ -270,26 +262,24 @@ class MediaPlayerService : Service() {
 
     // Stop the player and remove notification if currently playing media
     fun stopPlayer() {
-        if (isMediaPlaying) {
-            isMediaPlaying = false
-            mediaPlayer?.stop()
-            stopForeground(true)
-        }
-
+        isMediaPlaying = false
         releaseMediaPlayer()
-        updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
+        if (foreground) background()
     }
 
-    // Stop the player, remove notification and properly exit app
+    // Properly exit app
     fun exitPlayer() {
-        if (isMediaPlaying) {
-            stopPlayer()
-            isMediaPlaying = false
-        }
-
+        stopPlayer()
         disableGestures()
-        stopForeground(true)
         exitProcess(0)
+    }
+
+    // Properly stop and release MediaPlayer
+    private fun releaseMediaPlayer() {
+        mediaPlayer?.stop()
+        mediaPlayer?.reset()
+        mediaPlayer?.release()
+        mediaPlayer = null
     }
 
     // Start and bind AccelerationService
