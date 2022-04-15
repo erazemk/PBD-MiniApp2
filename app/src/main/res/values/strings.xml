@@ -16,4 +16,6 @@
     <!-- Notifications -->
     <string name="notification_channel_name">Foreground service channel</string>
     <string name="notification_channel_description">Posts notifications related to the media player service</string>
+
+    <string name="gestures_toast_text">Gestures %1$s</string>
 </resources>
