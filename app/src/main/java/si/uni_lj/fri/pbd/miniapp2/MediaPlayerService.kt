@@ -254,6 +254,13 @@ class MediaPlayerService : Service() {
         mediaPlayer?.start()
         if (foreground) updateNotification()
         updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
+
+        // Autoplay next song on completion
+        mediaPlayer?.setOnCompletionListener {
+            releaseMediaPlayer()
+            createMediaPlayer()
+            startPlayer()
+        }
     }
 
     // Pause the player if currently playing media
