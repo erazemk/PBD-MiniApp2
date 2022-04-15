@@ -44,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStart() {
+        Log.d(TAG, "Starting main activity")
         super.onStart()
 
         val mediaPlayerIntent = Intent(this, MediaPlayerService::class.java)
@@ -56,14 +57,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        Log.d(TAG, "Stopping main activity")
         super.onStop()
-
-        updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
 
         // Unbind the service if bound
         if (serviceBound) {
             unbindService(mConnection)
-            serviceBound = false
 
             // If media is playing, create a notification, otherwise stop the service
             if (mediaPlayerService?.isMediaPlaying == true) {
@@ -78,11 +77,11 @@ class MainActivity : AppCompatActivity() {
     // Handler to update the duration info every second, when the media is playing
     private val updateDurationHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
-            if (DURATION_MSG_ID == msg.what) {
-                if (mediaPlayerService?.isMediaPlaying == true)
-                    // Update duration info (including progress bar) in a coroutine
-                    CoroutineScope(Dispatchers.Main).launch { updateDuration() }
-
+            if (serviceBound && DURATION_MSG_ID == msg.what &&
+                mediaPlayerService?.isMediaPlaying == true
+            ) {
+                // Update duration info (including progress bar) in a coroutine
+                CoroutineScope(Dispatchers.Main).launch { updateDuration() }
                 sendEmptyMessageDelayed(DURATION_MSG_ID, DURATION_MSG_RATE)
             }
         }
@@ -94,6 +93,7 @@ class MainActivity : AppCompatActivity() {
             mediaPlayerService = (service as MediaPlayerService.MediaServiceBinder).service
             serviceBound = true
             mediaPlayerService?.background()
+            updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
         }
     }
 
@@ -103,6 +103,10 @@ class MainActivity : AppCompatActivity() {
             // Update text view and progress bar with the proper current position and duration
             binding.textDuration.text = mediaPlayerService?.songDurationText
             binding.progressBar.progress = mediaPlayerService?.songProgress ?: 0
+
+            // We have to also update the title for autoplay after completion to work,
+            // even though this is really wasteful :(
+            binding.textTitle.text = mediaPlayerService?.songTitleText
         } else {
             Log.w(TAG, "Could not update duration, service not bound")
         }
@@ -123,7 +127,6 @@ class MainActivity : AppCompatActivity() {
     fun pauseButtonOnClickListener(v: View) {
         if (serviceBound && mediaPlayerService?.isMediaPlaying == true) {
             mediaPlayerService?.pausePlayer()
-            updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
         } else {
             Log.w(TAG, "Not bound to MediaPlayerService or not playing media")
         }
@@ -133,7 +136,6 @@ class MainActivity : AppCompatActivity() {
     fun stopButtonOnClickListener(v: View) {
         if (serviceBound) {
             mediaPlayerService?.stopPlayer()
-            updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
 
             // Reset media info
             binding.textTitle.text = getString(R.string.song_title_text, "Press play")
@@ -142,6 +144,17 @@ class MainActivity : AppCompatActivity() {
         } else {
             Log.w(TAG, "Not bound to MediaPlayerService or not playing media")
         }
+    }
+
+    // Stop playing a media file and exit the app
+    fun exitButtonOnClickListener(v: View) {
+        if (serviceBound) mediaPlayerService?.exitPlayer()
+
+        // Only stop MediaPlayerService, it will have stopped AccelerationService if needed
+        stopService(Intent(this, MediaPlayerService::class.java))
+
+        // Exit the app
+        exitProcess(0)
     }
 
     // Enable gesture control
@@ -158,19 +171,5 @@ class MainActivity : AppCompatActivity() {
             gesturesEnabled = false
             mediaPlayerService?.disableGestures()
         }
-    }
-
-    // Stop playing a media file and exit the app
-    fun exitButtonOnClickListener(v: View) {
-        if (serviceBound && mediaPlayerService?.isMediaPlaying == true) {
-            mediaPlayerService?.exitPlayer()
-            updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
-        }
-
-        // Only stop MediaPlayerService, it will have stopped AccelerationService if needed
-        stopService(Intent(this, MediaPlayerService::class.java))
-
-        // Exit the app
-        exitProcess(0)
     }
 }
