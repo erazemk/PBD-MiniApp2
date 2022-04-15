@@ -142,7 +142,13 @@ class MediaPlayerService : Service() {
         // Pick a random song
         // Source: https://stackoverflow.com/a/63584710
         val fields : Array<Field> = R.raw::class.java.declaredFields
-        val randomSongIndex = (Math.random() * fields.size).toInt()
+        var randomSongIndex = (Math.random() * fields.size).toInt()
+
+        // Don't choose same song twice
+        while (fields[randomSongIndex].getInt(randomSongIndex) == songResId) {
+            randomSongIndex = (Math.random() * fields.size).toInt()
+        }
+
         songResId = fields[randomSongIndex].getInt(randomSongIndex)
         mediaPlayer = MediaPlayer.create(this, songResId)
 
