@@ -19,8 +19,8 @@ class MainActivity : AppCompatActivity() {
     companion object {
         const val TAG = "MainActivity"
 
-        const val DURATION_MSG_ID = 1
-        const val DURATION_MSG_RATE = 1000L
+        const val MEDIAINFO_MSG_ID = 1
+        const val MEDIAINFO_MSG_RATE = 1000L
     }
 
     private var serviceBound : Boolean = false
@@ -44,8 +44,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStart() {
-        Log.d(TAG, "Starting main activity")
         super.onStart()
+        Log.d(TAG, "Called onStart")
 
         val mediaPlayerIntent = Intent(this, MediaPlayerService::class.java)
 
@@ -57,49 +57,48 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
-        Log.d(TAG, "Stopping main activity")
         super.onStop()
+        Log.d(TAG, "Called onStop")
 
         // Unbind the service if bound
         if (serviceBound) {
             unbindService(mConnection)
-
-            // If media is playing, create a notification, otherwise stop the service
-            if (mediaPlayerService?.isMediaPlaying == true) {
-                mediaPlayerService?.foreground()
-            } else {
-                mediaPlayerService?.stopPlayer()
-                stopService(Intent(this, MediaPlayerService::class.java))
-            }
+            serviceBound = false
         }
     }
 
-    // Handler to update the duration info every second, when the media is playing
-    private val updateDurationHandler = object : Handler(Looper.getMainLooper()) {
+    // Handler to update media info every second, when the media is playing
+    private val updateMediaInfoHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
-            if (serviceBound && DURATION_MSG_ID == msg.what &&
-                mediaPlayerService?.isMediaPlaying == true
-            ) {
+            if (serviceBound && MEDIAINFO_MSG_ID == msg.what) {
+                Log.d(TAG, "Updating media info")
+
                 // Update duration info (including progress bar) in a coroutine
-                CoroutineScope(Dispatchers.Main).launch { updateDuration() }
-                sendEmptyMessageDelayed(DURATION_MSG_ID, DURATION_MSG_RATE)
+                CoroutineScope(Dispatchers.Main).launch { updateMediaInfo() }
+                sendEmptyMessageDelayed(MEDIAINFO_MSG_ID, MEDIAINFO_MSG_RATE)
             }
         }
     }
 
     private val mConnection = object : ServiceConnection {
-        override fun onServiceDisconnected(name: ComponentName?) { serviceBound = false }
+        override fun onServiceDisconnected(name: ComponentName?) {
+            Log.i(TAG, "Disconnecting from MediaPlayerService")
+            serviceBound = false
+        }
+
         override fun onServiceConnected(name: ComponentName, service: IBinder) {
+            Log.i(TAG, "Connecting to MediaPlayerService")
+
             mediaPlayerService = (service as MediaPlayerService.MediaServiceBinder).service
             serviceBound = true
-            mediaPlayerService?.background()
-            updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
+            updateMediaInfoHandler.sendEmptyMessage(MEDIAINFO_MSG_ID)
         }
     }
 
-    // Updates the duration in the media player screen
-    private fun updateDuration() {
+    private fun updateMediaInfo() {
         if (serviceBound) {
+            Log.d(TAG, "Updating media info")
+
             // Update text view and progress bar with the proper current position and duration
             binding.textDuration.text = mediaPlayerService?.songDurationText
             binding.progressBar.progress = mediaPlayerService?.songProgress ?: 0
@@ -112,18 +111,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Start playing a media file if the service is bound and there is no media playing already
+    // Start playing media if the service is bound and there is no media playing already
     fun playButtonOnClickListener(v: View) {
         if (serviceBound && mediaPlayerService?.isMediaPlaying == false) {
             mediaPlayerService?.startPlayer()
-            binding.textTitle.text = mediaPlayerService?.songTitleText
-            updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
+            updateMediaInfoHandler.sendEmptyMessage(MEDIAINFO_MSG_ID)
         } else {
             Log.w(TAG, "Not bound to MediaPlayerService or already playing media")
         }
     }
 
-    // Pause playing a media file if the service is bound and there is a media file playing
+    // Pause playing media if the service is bound and there is a media file playing
     fun pauseButtonOnClickListener(v: View) {
         if (serviceBound && mediaPlayerService?.isMediaPlaying == true) {
             mediaPlayerService?.pausePlayer()
@@ -132,7 +130,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Stop playing a media file if the service is bound and there is a media file playing
+    // Stop playing media if the service is bound
     fun stopButtonOnClickListener(v: View) {
         if (serviceBound) {
             mediaPlayerService?.stopPlayer()
@@ -146,7 +144,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Stop playing a media file and exit the app
+    // Stop playing media if needed and exit the app
     fun exitButtonOnClickListener(v: View) {
         if (serviceBound) mediaPlayerService?.exitPlayer()
 

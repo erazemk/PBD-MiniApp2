@@ -40,10 +40,9 @@ class MediaPlayerService : Service() {
     private var currentPosition = 0
 
     var songProgress = 0
-    var songTitleText = "Song title"
-    var songDurationText = "00:00"
+    var songTitleText = "Press play"
+    var songDurationText = "00:00/00:00"
 
-    private var foreground = false
     private var mediaPlayer : MediaPlayer? = null
     private var serviceBinder = MediaServiceBinder()
 
@@ -65,11 +64,12 @@ class MediaPlayerService : Service() {
     }
 
     // Handler to update duration info every second
-    private val updateDurationHandler = object : Handler(Looper.getMainLooper()) {
+    private val updateMediaInfoHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             if (DURATION_MSG_ID == msg.what && isMediaPlaying) {
+                Log.d(TAG, "Updating media info")
                 updateMediaInfo()
-                if (foreground) updateNotification()
+                updateNotification()
                 sendEmptyMessageDelayed(DURATION_MSG_ID, DURATION_MSG_RATE)
             }
         }
@@ -105,17 +105,18 @@ class MediaPlayerService : Service() {
     override fun onBind(intent: Intent): IBinder { return serviceBinder }
 
     override fun onCreate() {
+        Log.d(TAG, "Called onCreate")
+
         notificationManager = applicationContext.getSystemService(Context.NOTIFICATION_SERVICE)
             as NotificationManager
 
         isMediaPlaying = false
         playPauseNotificationButtonText = if (isMediaPlaying) "Pause" else "Play"
-
-        createMediaPlayer()
-        createNotificationChannel()
     }
 
     override fun onDestroy() {
+        Log.d(TAG, "Called onDestroy")
+
         if (serviceBound) {
             unbindService(mConnection)
             serviceBound = false
@@ -129,6 +130,7 @@ class MediaPlayerService : Service() {
     }
 
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
+        Log.i(TAG, "Received intent from notification: ${intent.action}")
         when (intent.action) {
             ACTION_PLAY_PAUSE -> if (isMediaPlaying) pausePlayer() else startPlayer()
             ACTION_STOP -> stopPlayer()
@@ -139,6 +141,8 @@ class MediaPlayerService : Service() {
     }
 
     private fun createMediaPlayer() {
+        Log.i(TAG, "Creating media player")
+
         // Pick a random song
         // Source: https://stackoverflow.com/a/63584710
         val fields : Array<Field> = R.raw::class.java.declaredFields
@@ -185,7 +189,10 @@ class MediaPlayerService : Service() {
         songDurationText = String.format("%s/%s", currentPositionFormat, durationFormat)
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotification() : Notification {
+        Log.i(TAG, "Creating notification")
+
+        // Create notification channel
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID, getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_LOW)
@@ -195,11 +202,9 @@ class MediaPlayerService : Service() {
         channel.enableVibration(true)
         val managerCompat = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         managerCompat.createNotificationChannel(channel)
-    }
 
-    // Create all the necessary intents (start is not necessary since the notification
-    // won't exist if music isn't playing)
-    private fun createNotificationActions() {
+        // Create all the necessary intents (start is not necessary since the notification
+        // won't exist if music isn't playing)
         val playPauseIntent = Intent(this, MediaPlayerService::class.java)
         playPauseIntent.action = ACTION_PLAY_PAUSE
         playPausePendingIntent = PendingIntent.getService(this, 0, playPauseIntent,
@@ -214,12 +219,10 @@ class MediaPlayerService : Service() {
         exitIntent.action = ACTION_EXIT
         exitPendingIntent = PendingIntent.getService(this, 0, exitIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    }
 
-    private fun createNotification() : Notification {
-        createNotificationActions()
         playPauseNotificationButtonText = if (isMediaPlaying) "Pause" else "Play"
 
+        // Build the notification
         // Source: https://stackoverflow.com/a/16435330
         notificationBuilder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(songTitleText)
@@ -243,17 +246,26 @@ class MediaPlayerService : Service() {
     // Update the duration in the notification
     private fun updateNotification() {
         playPauseNotificationButtonText = if (isMediaPlaying) "Pause" else "Play"
+        notificationBuilder.setContentTitle(songTitleText)
         notificationBuilder.setContentText(songDurationText)
         notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
     }
 
     // Start the player if not currently playing media
     fun startPlayer() {
+        if (isMediaPlaying) return
+
+        Log.i(TAG, "Starting player")
+
         if (mediaPlayer == null) createMediaPlayer()
         isMediaPlaying = true
         mediaPlayer?.start()
-        if (foreground) updateNotification()
-        updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
+
+        // Create a notification
+        startForeground(NOTIFICATION_ID, createNotification())
+
+        // Start updating media info
+        updateMediaInfoHandler.sendEmptyMessage(DURATION_MSG_ID)
 
         // Autoplay next song on completion
         mediaPlayer?.setOnCompletionListener {
@@ -267,21 +279,32 @@ class MediaPlayerService : Service() {
     fun pausePlayer() {
         if (!isMediaPlaying) return
 
+        Log.i(TAG, "Pausing player")
+
         isMediaPlaying = false
         mediaPlayer?.pause()
-        if (foreground) updateNotification()
-        updateDurationHandler.sendEmptyMessage(DURATION_MSG_ID)
+        updateNotification()
     }
 
-    // Stop the player and remove notification if currently playing media
+    // Stop the player
     fun stopPlayer() {
+        Log.i(TAG, "Stopping player")
+
         isMediaPlaying = false
         releaseMediaPlayer()
-        if (foreground) background()
+
+        // Set default media info values
+        songProgress = 0
+        songTitleText = "Press play"
+        songDurationText = "00:00/00:00"
+
+        updateNotification()
     }
 
     // Properly exit app
     fun exitPlayer() {
+        Log.i(TAG, "Exiting player")
+
         stopPlayer()
         disableGestures()
         exitProcess(0)
@@ -289,6 +312,8 @@ class MediaPlayerService : Service() {
 
     // Properly stop and release MediaPlayer
     private fun releaseMediaPlayer() {
+        Log.i(TAG, "Releasing player")
+
         mediaPlayer?.stop()
         mediaPlayer?.reset()
         mediaPlayer?.release()
@@ -297,6 +322,8 @@ class MediaPlayerService : Service() {
 
     // Start and bind AccelerationService
     fun enableGestures() {
+        Log.i(TAG, "Enabling gestures")
+
         Toast.makeText(this, getString(R.string.gestures_toast_text, "enabled"),
             Toast.LENGTH_SHORT).show()
 
@@ -311,6 +338,8 @@ class MediaPlayerService : Service() {
 
     // Unbind and stop AccelerationService
     fun disableGestures() {
+        Log.i(TAG, "Disabling gestures")
+
         Toast.makeText(this, getString(R.string.gestures_toast_text, "disabled"),
             Toast.LENGTH_SHORT).show()
 
@@ -322,15 +351,5 @@ class MediaPlayerService : Service() {
         // Unregister the gesture broadcast receiver and stop AccelerationService
         LocalBroadcastManager.getInstance(this).unregisterReceiver(gestureBroadcastReceiver)
         stopService(Intent(this, AccelerationService::class.java))
-    }
-
-    fun foreground() {
-        foreground = true
-        startForeground(NOTIFICATION_ID, createNotification())
-    }
-
-    fun background() {
-        foreground = false
-        stopForeground(true)
     }
 }
