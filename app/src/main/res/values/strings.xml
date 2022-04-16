@@ -12,6 +12,7 @@
     <!-- TextViews -->
     <string name="song_title_text">%1$s</string>
     <string name="song_duration_text">%1$s</string>
+    <string name="royalty_text">All songs are royalty-free: https://youtube.com/audiolibrary</string>
 
     <!-- Notifications -->
     <string name="notification_channel_name">Foreground service channel</string>
