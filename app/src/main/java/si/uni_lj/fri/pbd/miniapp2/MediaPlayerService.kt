@@ -285,7 +285,6 @@ class MediaPlayerService : Service() {
         // Autoplay next song on completion
         mediaPlayer?.setOnCompletionListener {
             releaseMediaPlayer()
-            createMediaPlayer()
             startPlayer()
         }
     }
@@ -305,7 +304,6 @@ class MediaPlayerService : Service() {
     fun stopPlayer() {
         Log.i(TAG, "Stopping player")
 
-        isMediaPlaying = false
         releaseMediaPlayer()
 
         // Set default media info values
@@ -333,6 +331,10 @@ class MediaPlayerService : Service() {
         mediaPlayer?.reset()
         mediaPlayer?.release()
         mediaPlayer = null
+
+        isMediaPlaying = false
+
+        Log.i(TAG, "Released player")
     }
 
     // Start and bind AccelerationService
