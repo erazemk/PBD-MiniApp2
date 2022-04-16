@@ -20,7 +20,8 @@ class MediaPlayerService : Service() {
     companion object {
         const val TAG = "MediaPlayerService"
 
-        const val ACTION_PLAY_PAUSE = "action_play_pause"
+        const val ACTION_PLAY = "action_play"
+        const val ACTION_PAUSE = "action_pause"
         const val ACTION_STOP = "action_stop"
         const val ACTION_EXIT = "action_exit"
 
@@ -49,11 +50,10 @@ class MediaPlayerService : Service() {
     private lateinit var notificationManager : NotificationManager
     private lateinit var notificationBuilder : NotificationCompat.Builder
 
+    private lateinit var playPendingIntent : PendingIntent
+    private lateinit var pausePendingIntent : PendingIntent
     private lateinit var stopPendingIntent : PendingIntent
     private lateinit var exitPendingIntent : PendingIntent
-    private lateinit var playPausePendingIntent : PendingIntent
-
-    private lateinit var playPauseNotificationButtonText : String
 
     var isMediaPlaying = false
         private set
@@ -111,7 +111,9 @@ class MediaPlayerService : Service() {
             as NotificationManager
 
         isMediaPlaying = false
-        playPauseNotificationButtonText = if (isMediaPlaying) "Pause" else "Play"
+
+        createNotificationChannel()
+        createNotificationIntents()
     }
 
     override fun onDestroy() {
@@ -132,7 +134,8 @@ class MediaPlayerService : Service() {
     override fun onStartCommand(intent: Intent, flags: Int, startId: Int): Int {
         Log.i(TAG, "Received intent from notification: ${intent.action}")
         when (intent.action) {
-            ACTION_PLAY_PAUSE -> if (isMediaPlaying) pausePlayer() else startPlayer()
+            ACTION_PLAY -> startPlayer()
+            ACTION_PAUSE -> pausePlayer()
             ACTION_STOP -> stopPlayer()
             ACTION_EXIT -> exitPlayer()
         }
@@ -189,10 +192,7 @@ class MediaPlayerService : Service() {
         songDurationText = String.format("%s/%s", currentPositionFormat, durationFormat)
     }
 
-    private fun createNotification() : Notification {
-        Log.i(TAG, "Creating notification")
-
-        // Create notification channel
+    private fun createNotificationChannel() {
         val channel = NotificationChannel(
             NOTIFICATION_CHANNEL_ID, getString(R.string.notification_channel_name),
             NotificationManager.IMPORTANCE_LOW)
@@ -202,27 +202,31 @@ class MediaPlayerService : Service() {
         channel.enableVibration(true)
         val managerCompat = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         managerCompat.createNotificationChannel(channel)
+    }
 
-        // Create all the necessary intents (start is not necessary since the notification
-        // won't exist if music isn't playing)
-        val playPauseIntent = Intent(this, MediaPlayerService::class.java)
-        playPauseIntent.action = ACTION_PLAY_PAUSE
-        playPausePendingIntent = PendingIntent.getService(this, 0, playPauseIntent,
+    private fun createNotificationIntents() {
+        val notificationIntent = Intent(this, MediaPlayerService::class.java)
+
+        notificationIntent.action = ACTION_PLAY
+        playPendingIntent = PendingIntent.getService(this, 0, notificationIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-        val stopIntent = Intent(this, MediaPlayerService::class.java)
-        stopIntent.action = ACTION_STOP
-        stopPendingIntent = PendingIntent.getService(this, 0, stopIntent,
+        notificationIntent.action = ACTION_PAUSE
+        pausePendingIntent = PendingIntent.getService(this, 0, notificationIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-        val exitIntent = Intent(this, MediaPlayerService::class.java)
-        exitIntent.action = ACTION_EXIT
-        exitPendingIntent = PendingIntent.getService(this, 0, exitIntent,
+        notificationIntent.action = ACTION_STOP
+        stopPendingIntent = PendingIntent.getService(this, 0, notificationIntent,
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 
-        playPauseNotificationButtonText = if (isMediaPlaying) "Pause" else "Play"
+        notificationIntent.action = ACTION_EXIT
+        exitPendingIntent = PendingIntent.getService(this, 0, notificationIntent,
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
 
-        // Build the notification
+    private fun createNotification() : Notification {
+        Log.i(TAG, "Creating notification")
+
         // Source: https://stackoverflow.com/a/16435330
         notificationBuilder = NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
             .setContentTitle(songTitleText)
@@ -231,8 +235,7 @@ class MediaPlayerService : Service() {
             .setChannelId(NOTIFICATION_CHANNEL_ID)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
-            .addAction(android.R.drawable.ic_media_pause, playPauseNotificationButtonText,
-                playPausePendingIntent)
+            .addAction(android.R.drawable.ic_media_pause, "Pause", pausePendingIntent)
             .addAction(android.R.drawable.ic_media_pause, "Stop", stopPendingIntent)
             .addAction(android.R.drawable.ic_media_pause, "Exit", exitPendingIntent)
 
@@ -243,11 +246,23 @@ class MediaPlayerService : Service() {
         return notificationBuilder.build()
     }
 
-    // Update the duration in the notification
+    // Update media info in the notifications
     private fun updateNotification() {
-        playPauseNotificationButtonText = if (isMediaPlaying) "Pause" else "Play"
-        notificationBuilder.setContentTitle(songTitleText)
-        notificationBuilder.setContentText(songDurationText)
+        notificationBuilder.clearActions()
+
+        // Rebuild actions based on media player state
+        if (isMediaPlaying) {
+            notificationBuilder.addAction(android.R.drawable.ic_media_pause, "Pause", pausePendingIntent)
+        } else {
+            notificationBuilder.addAction(android.R.drawable.ic_media_play, "Play", playPendingIntent)
+        }
+
+        notificationBuilder
+            .addAction(android.R.drawable.ic_media_pause, "Stop", stopPendingIntent)
+            .addAction(android.R.drawable.ic_media_pause, "Exit", exitPendingIntent)
+            .setContentTitle(songTitleText)
+            .setContentText(songDurationText)
+
         notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
     }
 
