@@ -8,12 +8,10 @@ import android.media.MediaPlayer
 import android.net.Uri
 import android.os.*
 import android.util.Log
-import android.widget.Toast
 import androidx.core.app.NotificationCompat
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import java.lang.reflect.Field
 import java.util.concurrent.TimeUnit
-import kotlin.system.exitProcess
 
 class MediaPlayerService : Service() {
 
@@ -320,7 +318,6 @@ class MediaPlayerService : Service() {
 
         stopPlayer()
         disableGestures()
-        exitProcess(0)
     }
 
     // Properly stop and release MediaPlayer
@@ -333,16 +330,11 @@ class MediaPlayerService : Service() {
         mediaPlayer = null
 
         isMediaPlaying = false
-
-        Log.i(TAG, "Released player")
     }
 
     // Start and bind AccelerationService
     fun enableGestures() {
         Log.i(TAG, "Enabling gestures")
-
-        Toast.makeText(this, getString(R.string.gestures_toast_text, "enabled"),
-            Toast.LENGTH_SHORT).show()
 
         val accelerationServiceIntent = Intent(this, AccelerationService::class.java)
 
@@ -357,16 +349,13 @@ class MediaPlayerService : Service() {
     fun disableGestures() {
         Log.i(TAG, "Disabling gestures")
 
-        Toast.makeText(this, getString(R.string.gestures_toast_text, "disabled"),
-            Toast.LENGTH_SHORT).show()
-
         if (serviceBound) {
             unbindService(mConnection)
             serviceBound = false
-        }
 
-        // Unregister the gesture broadcast receiver and stop AccelerationService
-        LocalBroadcastManager.getInstance(this).unregisterReceiver(gestureBroadcastReceiver)
-        stopService(Intent(this, AccelerationService::class.java))
+            // Unregister the gesture broadcast receiver and stop AccelerationService
+            LocalBroadcastManager.getInstance(this).unregisterReceiver(gestureBroadcastReceiver)
+            stopService(Intent(this, AccelerationService::class.java))
+        }
     }
 }

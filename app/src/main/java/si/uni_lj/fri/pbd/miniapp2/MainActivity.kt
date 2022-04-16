@@ -6,12 +6,12 @@ import android.content.ServiceConnection
 import android.os.*
 import android.util.Log
 import android.view.View
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import si.uni_lj.fri.pbd.miniapp2.databinding.ActivityMainBinding
-import kotlin.system.exitProcess
 
 @Suppress("UNUSED_PARAMETER")
 class MainActivity : AppCompatActivity() {
@@ -146,13 +146,15 @@ class MainActivity : AppCompatActivity() {
 
     // Stop playing media if needed and exit the app
     fun exitButtonOnClickListener(v: View) {
-        if (serviceBound) mediaPlayerService?.exitPlayer()
+        if (serviceBound) {
+            mediaPlayerService?.exitPlayer()
+        }
 
         // Only stop MediaPlayerService, it will have stopped AccelerationService if needed
         stopService(Intent(this, MediaPlayerService::class.java))
 
         // Exit the app
-        exitProcess(0)
+        finishAndRemoveTask()
     }
 
     // Enable gesture control
@@ -160,6 +162,9 @@ class MainActivity : AppCompatActivity() {
         if (!gesturesEnabled && serviceBound) {
             gesturesEnabled = true
             mediaPlayerService?.enableGestures()
+
+            Toast.makeText(this, getString(R.string.gestures_toast_text, "enabled"),
+                Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -168,6 +173,9 @@ class MainActivity : AppCompatActivity() {
         if (gesturesEnabled && serviceBound) {
             gesturesEnabled = false
             mediaPlayerService?.disableGestures()
+
+            Toast.makeText(this, getString(R.string.gestures_toast_text, "disabled"),
+                Toast.LENGTH_SHORT).show()
         }
     }
 }
