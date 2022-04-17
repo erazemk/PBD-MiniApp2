@@ -1,13 +1,12 @@
 package si.uni_lj.fri.pbd.miniapp2
 
-import android.content.ComponentName
-import android.content.Intent
-import android.content.ServiceConnection
+import android.content.*
 import android.os.*
 import android.util.Log
 import android.view.View
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -71,7 +70,7 @@ class MainActivity : AppCompatActivity() {
     private val updateMediaInfoHandler = object : Handler(Looper.getMainLooper()) {
         override fun handleMessage(msg: Message) {
             if (serviceBound && MEDIAINFO_MSG_ID == msg.what) {
-                Log.d(TAG, "Updating media info")
+                Log.d(TAG, "Called updateMediaInfoHandler")
 
                 // Update duration info (including progress bar) in a coroutine
                 CoroutineScope(Dispatchers.Main).launch { updateMediaInfo() }
@@ -91,8 +90,32 @@ class MainActivity : AppCompatActivity() {
 
             mediaPlayerService = (service as MediaPlayerService.MediaServiceBinder).service
             serviceBound = true
+            registerExitReceiver()
             updateMediaInfoHandler.sendEmptyMessage(MEDIAINFO_MSG_ID)
         }
+    }
+
+    // Create a broadcast receiver for properly exiting the app
+    // Source: https://stackoverflow.com/a/45399437
+    private val exitBroadcastReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            if (intent.action == MediaPlayerService.ACTION_EXIT) {
+                Log.i(TAG, "Received exit broadcast message")
+
+                // Only stop MediaPlayerService, it will have stopped AccelerationService if needed
+                stopService(Intent(context, MediaPlayerService::class.java))
+
+                // Exit the app
+                finishAndRemoveTask()
+            }
+        }
+    }
+
+    private fun registerExitReceiver() {
+        LocalBroadcastManager.getInstance(this).registerReceiver(
+            exitBroadcastReceiver,
+            IntentFilter(MediaPlayerService.ACTION_EXIT)
+        )
     }
 
     private fun updateMediaInfo() {
@@ -113,11 +136,10 @@ class MainActivity : AppCompatActivity() {
 
     // Start playing media if the service is bound and there is no media playing already
     fun playButtonOnClickListener(v: View) {
-        if (serviceBound && mediaPlayerService?.isMediaPlaying == false) {
+        if (serviceBound) {
             mediaPlayerService?.startPlayer()
-            updateMediaInfoHandler.sendEmptyMessage(MEDIAINFO_MSG_ID)
         } else {
-            Log.w(TAG, "Not bound to MediaPlayerService or already playing media")
+            Log.w(TAG, "Not bound to MediaPlayerService")
         }
     }
 
@@ -140,7 +162,7 @@ class MainActivity : AppCompatActivity() {
             binding.textDuration.text = getString(R.string.song_duration_text, "00:00/00:00")
             binding.progressBar.progress = 0
         } else {
-            Log.w(TAG, "Not bound to MediaPlayerService or not playing media")
+            Log.w(TAG, "Not bound to MediaPlayerService")
         }
     }
 
@@ -148,13 +170,13 @@ class MainActivity : AppCompatActivity() {
     fun exitButtonOnClickListener(v: View) {
         if (serviceBound) {
             mediaPlayerService?.exitPlayer()
+        } else {
+            // Only stop MediaPlayerService, it will have stopped AccelerationService if needed
+            stopService(Intent(this, MediaPlayerService::class.java))
+
+            // Exit the app
+            finishAndRemoveTask()
         }
-
-        // Only stop MediaPlayerService, it will have stopped AccelerationService if needed
-        stopService(Intent(this, MediaPlayerService::class.java))
-
-        // Exit the app
-        finishAndRemoveTask()
     }
 
     // Enable gesture control
