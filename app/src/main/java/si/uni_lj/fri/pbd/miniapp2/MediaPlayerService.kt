@@ -264,13 +264,16 @@ class MediaPlayerService : Service() {
         notificationManager.notify(NOTIFICATION_ID, notificationBuilder.build())
     }
 
-    // Start the player if not currently playing media
+    // Re-start playback if paused or start playing new song
     fun startPlayer() {
-        if (isMediaPlaying) return
-
         Log.i(TAG, "Starting player")
 
+        // Already playing, start playing new song
+        if (isMediaPlaying) stopPlayer()
+
+        // Create a new media player instance if needed
         if (mediaPlayer == null) createMediaPlayer()
+
         isMediaPlaying = true
         mediaPlayer?.start()
 
@@ -316,8 +319,9 @@ class MediaPlayerService : Service() {
     fun exitPlayer() {
         Log.i(TAG, "Exiting player")
 
-        stopPlayer()
+        if (mediaPlayer != null) stopPlayer()
         disableGestures()
+        LocalBroadcastManager.getInstance(this).sendBroadcast(Intent(ACTION_EXIT))
     }
 
     // Properly stop and release MediaPlayer
