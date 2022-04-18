@@ -36,7 +36,6 @@ class AccelerationService : Service(), SensorEventListener {
     private var t2 : Long = 0
 
     private var x : Float = 0F
-    private var y : Float = 0F
     private var z : Float = 0F
 
     inner class AccelerationServiceBinder : Binder() {
@@ -74,17 +73,14 @@ class AccelerationService : Service(), SensorEventListener {
 
         // Calculate deltas
         var dX = abs(x - values[0])
-        var dY = abs(y - values[1])
         var dZ = abs(z - values[2])
 
         // Store current values
         x = values[0]
-        y = values[1]
         z = values[2]
 
         // Only count gesture if past threshold
         if (dX < 5) dX = 0F
-        if (dY < 5) dY = 0F
         if (dZ < 5) dZ = 0F
 
         // If moving in X axis, count as horizontal change
@@ -93,8 +89,8 @@ class AccelerationService : Service(), SensorEventListener {
             horizontal = true
         }
 
-        // If moving in Y axis, count as vertical change
-        if (dY > dZ) {
+        // If moving in Z axis, count as vertical change
+        if (dZ > dX) {
             vertical = true
             horizontal = false
         }
