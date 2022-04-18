@@ -27,7 +27,11 @@ class AccelerationService : Service(), SensorEventListener {
 
     private var vertical : Boolean = false
     private var horizontal : Boolean = false
+    private var ignoredFirstGesture : Boolean = false
 
+    private var lastGesture : String = ""
+
+    private var t : Long = 0
     private var t1 : Long = 0
     private var t2 : Long = 0
 
@@ -61,7 +65,7 @@ class AccelerationService : Service(), SensorEventListener {
     private fun detectGesture(values: FloatArray) {
         t1 = System.currentTimeMillis()
 
-        // Only detect orientation change every 500 ms
+        // Only detect gesture every 500 ms
         if ((t1 - t2) < 500) return
 
         // Reset both values
@@ -99,8 +103,24 @@ class AccelerationService : Service(), SensorEventListener {
 
         // Send a broadcast to MediaPlayerService only if a gesture was detected
         if (horizontal || vertical) {
+
+            // Ignore first gesture event, since it's triggered when starting the service
+            if (!ignoredFirstGesture) {
+                ignoredFirstGesture = true
+                return
+            }
+
+            val gesture = if (horizontal) "horizontal" else "vertical"
+
+            // If detected the same gesture in the last 2s, ignore it
+            if (gesture == lastGesture && t2 - t < 2000) return
+
+            lastGesture = gesture
+            t = t2
+
+            // Send the gesture to MediaPlayerService
             val gestureEvent = Intent(ACTION_GESTURE)
-            gestureEvent.putExtra("gesture", if (horizontal) "horizontal" else "vertical")
+            gestureEvent.putExtra("gesture", gesture)
             LocalBroadcastManager.getInstance(this).sendBroadcast(gestureEvent)
         }
     }
